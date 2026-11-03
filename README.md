@@ -55,3 +55,9 @@ The source preserves the owner's existing branding and site layout. The reposito
 Run `python3 scripts/check.py` to validate local references, Cloudflare asset size limits, and excluded commerce routes. Desktop and 390px mobile navigation and brand-image layouts were checked in a browser. The 69-second company film was verified as H.264 video with AAC audio and compressed below the Pages per-file limit.
 
 The existing Google Forms endpoints returned HTTP 401 during migration verification, so successful embedding, public access, and response delivery remain unverified. Original form URLs are preserved with direct-link fallbacks. The form owner should verify sharing/access before launch. The MoodList layout is widened for responsive embedding, and its header contrast is corrected.
+
+## Returns feature preview
+
+The `feature/returns-preview` branch adds `/returns/`, `/admin/returns/`, a dedicated D1 backend, private attachments, notification outbox/test inbox, and isolated Google OIDC authorization scaffolding. **Do not merge or deploy this branch to production as part of preview review.** See `returns/LAUNCH.md` for setup, review steps, and remaining launch decisions.
+
+Local development (Node >=22.13): `node returns/dev.mjs`; tests: `node --test tests/*.test.mjs`. The local SQLite preview uses the same backend request handler and SQL as the Cloudflare Pages Functions deployment, through a small D1-compatible adapter. The `.returns-local` directory is ignored and never uploaded.

@@ -2,5 +2,36 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "sungrown-com",
   "pages_build_output_dir": "./public",
-  "compatibility_date": "2026-11-03"
+  "compatibility_date": "2026-11-03",
+  "vars": {
+    "RETURNS_MODE": "disabled",
+    "REAL_EMAIL_ENABLED": "false",
+    "INTAKE_ENABLED": "false"
+  },
+  "d1_databases": [],
+  "env": {
+    "preview": {
+      "vars": {
+        "RETURNS_MODE": "preview",
+        "REAL_EMAIL_ENABLED": "false",
+        "INTAKE_ENABLED": "false"
+      },
+      "d1_databases": [
+        {
+          "binding": "RETURNS_DB",
+          "database_name": "sungrown-returns-preview",
+          "database_id": "40bab43b-4366-4a51-8f56-7464e5b32308",
+          "migrations_dir": "migrations"
+        }
+      ]
+    },
+    "production": {
+      "vars": {
+        "RETURNS_MODE": "disabled",
+        "REAL_EMAIL_ENABLED": "false",
+        "INTAKE_ENABLED": "false"
+      },
+      "d1_databases": []
+    }
+  }
 }
