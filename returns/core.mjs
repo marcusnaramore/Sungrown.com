@@ -79,9 +79,9 @@ async function session(req,env,mail,redirect){const raw=token(),csrf=token();awa
 function csvCell(v){let s=String(v??'');if(/^[=+@\-\t\r]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
 export async function handle(req,env){try{const url=new URL(req.url),path=url.pathname.replace(/^\/api\/returns\/?/,'').replace(/\/$/,'');if(env.RETURNS_MODE==='disabled'||!env.RETURNS_MODE)fail('Returns intake is not open yet.',503);if(!env.RETURNS_DB)fail('Returns storage is not configured.',503);if(!['GET','HEAD'].includes(req.method)){const origin=req.headers.get('origin');if(origin!==url.origin)fail('Request origin is not allowed.',403);if(Number(req.headers.get('content-length')||0)>800000)fail('Upload too large.',413);}
  if(path==='config')return json({mode:env.RETURNS_MODE,intake:env.RETURNS_MODE==='preview'||env.INTAKE_ENABLED==='true',policy:await policy(env),staff:env.RETURNS_MODE==='preview'?DEMO_STAFF:undefined});
- if(path.startsWith('auth/'))return oauth(req,env,path);
+ if(path.startsWith('auth/'))return await oauth(req,env,path);
  const b=async()=>{const raw=await req.text();if(raw.length>800000)fail('Upload too large.',413);try{return JSON.parse(raw);}catch{fail('Invalid request.');}};
- if(path==='demo-login'&&req.method==='POST'){if(env.RETURNS_MODE!=='preview')fail('Not found.',404);await limit(req,env,'demo-login',60);const body=await b();if(!DEMO_STAFF[body.email])fail('Choose a fictional demo role.');await seed(req,env);return session(req,env,body.email);}
+ if(path==='demo-login'&&req.method==='POST'){if(env.RETURNS_MODE!=='preview')fail('Not found.',404);await limit(req,env,'demo-login',60);const body=await b();if(!DEMO_STAFF[body.email])fail('Choose a fictional demo role.');await seed(req,env);return await session(req,env,body.email);}
  if(path==='me')return json({staff:await staff(req,env)});
  if(path==='logout'&&req.method==='POST'){await staff(req,env);await q(env,'DELETE FROM staff_sessions WHERE hash=?',await hash(cookieValue(req,'sg_staff'))).run();return json({ok:true},200,{'set-cookie':cookie('sg_staff','',req,0)});}
  if(path==='claims'&&req.method==='POST'){if(env.RETURNS_MODE!=='preview'&&env.INTAKE_ENABLED!=='true')fail('Returns intake is not open yet.',503);return json(await intake(req,env,await b()),201);}
