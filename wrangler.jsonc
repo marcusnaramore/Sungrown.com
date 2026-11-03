@@ -6,7 +6,11 @@
   "vars": {
     "RETURNS_MODE": "disabled",
     "REAL_EMAIL_ENABLED": "false",
-    "INTAKE_ENABLED": "false"
+    "INTAKE_ENABLED": "false",
+    "POLICY_APPROVED": "false",
+    "MAIL_PROVIDER": "google",
+    "RETURNS_FROM": "Sungrown Returns <returns@sungrown.com>",
+    "RETURNS_REPLY_TO": "returns@sungrown.com"
   },
   "d1_databases": [],
   "env": {
@@ -14,7 +18,8 @@
       "vars": {
         "RETURNS_MODE": "preview",
         "REAL_EMAIL_ENABLED": "false",
-        "INTAKE_ENABLED": "false"
+        "INTAKE_ENABLED": "false",
+        "POLICY_APPROVED": "false"
       },
       "d1_databases": [
         {
@@ -29,9 +34,20 @@
       "vars": {
         "RETURNS_MODE": "disabled",
         "REAL_EMAIL_ENABLED": "false",
-        "INTAKE_ENABLED": "false"
+        "INTAKE_ENABLED": "false",
+        "POLICY_APPROVED": "false",
+        "MAIL_PROVIDER": "google",
+        "RETURNS_FROM": "Sungrown Returns <returns@sungrown.com>",
+        "RETURNS_REPLY_TO": "returns@sungrown.com"
       },
-      "d1_databases": []
+      "d1_databases": [
+        {
+          "binding": "RETURNS_DB",
+          "database_name": "sungrown-returns-production",
+          "database_id": "4af72596-16f1-4c3a-9a8d-07ece3a70301",
+          "migrations_dir": "migrations"
+        }
+      ]
     }
   }
 }
