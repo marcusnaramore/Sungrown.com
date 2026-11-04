@@ -1,0 +1,1 @@
+UPDATE configuration SET data=json_set(data,'$.exposureCapCents',300000,'$.exposureCapPeriod','calendar_month','$.exposureCapTimezone','America/Los_Angeles','$.exposureCapApproved',json('true'),'$.exceptionPolicy','manual_review','$.exceptionTolerance',NULL) WHERE key='policy';

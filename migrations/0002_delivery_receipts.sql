@@ -1,0 +1,2 @@
+ALTER TABLE outbox ADD COLUMN first_attempt INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE outbox ADD COLUMN provider_id TEXT;

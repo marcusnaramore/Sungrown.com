@@ -1,0 +1,12 @@
+CREATE TABLE claims(seq INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT UNIQUE NOT NULL,idempotency TEXT UNIQUE NOT NULL,digest TEXT NOT NULL,data TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1);
+CREATE TABLE claim_links(hash TEXT PRIMARY KEY,claim_id TEXT NOT NULL,expires INTEGER NOT NULL,revoked INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX links_claim ON claim_links(claim_id);
+CREATE TABLE attachments(id TEXT PRIMARY KEY,claim_id TEXT NOT NULL,name TEXT NOT NULL,mime TEXT NOT NULL,body TEXT NOT NULL,created TEXT NOT NULL);
+CREATE TABLE events(id TEXT PRIMARY KEY,claim_id TEXT NOT NULL,actor TEXT NOT NULL,kind TEXT NOT NULL,created TEXT NOT NULL,data TEXT NOT NULL);
+CREATE INDEX events_claim ON events(claim_id);
+CREATE TABLE outbox(id TEXT PRIMARY KEY,claim_id TEXT NOT NULL,event_key TEXT UNIQUE NOT NULL,recipient TEXT NOT NULL,payload TEXT NOT NULL,state TEXT NOT NULL DEFAULT 'pending',attempts INTEGER NOT NULL DEFAULT 0,error TEXT,lease_until INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE staff_sessions(hash TEXT PRIMARY KEY,email TEXT NOT NULL,expires INTEGER NOT NULL,csrf TEXT NOT NULL);
+CREATE TABLE oauth_states(hash TEXT PRIMARY KEY,nonce TEXT NOT NULL,verifier TEXT NOT NULL,expires INTEGER NOT NULL);
+CREATE TABLE rate_limits(key TEXT PRIMARY KEY,window INTEGER NOT NULL,count INTEGER NOT NULL);
+CREATE TABLE configuration(key TEXT PRIMARY KEY,data TEXT NOT NULL);
+INSERT INTO configuration VALUES('policy','{"pilotEnabled":false,"pilotStarted":null,"pilotDays":60,"submitDays":180,"completeDays":200,"quickLimit":20000,"ackBusinessDays":2,"paymentTargetBusinessDays":10,"paymentMaximumBusinessDays":14,"destructionEnabled":false,"exposureCapCents":null,"exceptionTolerance":null,"holidays":[]}');
