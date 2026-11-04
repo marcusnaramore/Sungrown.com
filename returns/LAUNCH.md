@@ -60,3 +60,13 @@ Submission/completion windows are 90/100 calendar days. The other pilot terms we
 Monthly cap enforcement is atomic. Paid returns cannot be re-decided. A cross-month approval does not consume the new month’s budget, and reporting reads the configured completion window. Google sending does not assume provider idempotency: an uncertain send is held for reconciliation rather than automatically repeated.
 
 The monthly approval cap is confirmed at $3,000, with individual leadership review for exceptions and no automatic exception-percentage allowance. The returns sender is confirmed as a Google user mailbox. Staff assignments are confirmed privately, including one explicitly authorized combined owner/Finance account; backend and UI support multiple roles. No real staff identity or private allowlist is included in source control. Pilot activation and live intake/email remain off pending Google setup and domain cutover.
+
+## Production staff setup and Google sender connection
+
+The production release can run in `RETURNS_MODE=live` with `INTAKE_ENABLED=false`, `REAL_EMAIL_ENABLED=false`, and `POLICY_APPROVED=false` while staff login is verified. The pilot remains disabled in D1. This enables staff setup without accepting retailer claims.
+
+Set the private `RETURNS_STAFF` allowlist and a random 32-byte hexadecimal `RETURNS_MAIL_KEY` as encrypted Cloudflare production secrets. Keep the encryption key stable and backed up through the runtime secret-management process; replacing it requires reconnecting the sender. Never commit either secret. The existing Google OAuth client uses only the exact production `/api/returns/auth/callback` redirect.
+
+Leadership can use **Email setup → Connect mailbox** to initiate a nonce/PKCE/state-protected Google send-only consent flow. The callback requires the same authorized leadership session and verifies the signed Google identity is exactly the configured returns mailbox. Refresh authorization is encrypted with AES-GCM and the independent runtime key before storage in D1; neither the API nor frontend exposes it. No Gmail read/delete scopes are requested. Existing runtime `GOOGLE_MAIL_REFRESH_TOKEN` remains supported for deployments that manage it directly as a secret.
+
+After the mailbox is connected, enable real delivery for an explicitly authorized test to the signed-in staff recipient. Confirm Google acceptance and receipt/reply behavior, then enable retailer intake and the approved persisted pilot. Sending a test creates an outbox record, not a return claim. Fictional preview remains isolated and does not contact Google mail.

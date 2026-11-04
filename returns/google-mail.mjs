@@ -1,11 +1,13 @@
+import {mailAuthorization} from './mail-authorization.mjs';
 // Google Workspace delivery. Credentials are runtime secrets, never source files.
 const utf8base64=value=>btoa(String.fromCharCode(...new TextEncoder().encode(value)));
 const mimeBase64=value=>utf8base64(value).match(/.{1,76}/g)?.join('\r\n')||'';
 const encodedSubject=value=>{const chunks=[];let current='';for(const character of String(value)){if(new TextEncoder().encode(current+character).length>42){chunks.push(current);current='';}current+=character;}if(current)chunks.push(current);return chunks.map(c=>'=?UTF-8?B?'+utf8base64(c)+'?=').join('\r\n ');};
 const safeHeader=value=>String(value||'').replace(/[\r\n]/g,' ').trim();
 export async function sendGoogleMail(env,mail,payload,setUncertain){
- if(!env.GOOGLE_CLIENT_ID||!env.GOOGLE_CLIENT_SECRET||!env.GOOGLE_MAIL_REFRESH_TOKEN)throw Error('Google mail authorization has not been configured.');
- const exchange=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,refresh_token:env.GOOGLE_MAIL_REFRESH_TOKEN,grant_type:'refresh_token'})});
+ if(!env.GOOGLE_CLIENT_ID||!env.GOOGLE_CLIENT_SECRET)throw Error('Google mail authorization has not been configured.');
+ const refreshToken=await mailAuthorization(env);
+ const exchange=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,refresh_token:refreshToken,grant_type:'refresh_token'})});
  if(!exchange.ok)throw Error('Google mail authorization failed ('+exchange.status+'). Reconnect the sender mailbox.');
  const {access_token}=await exchange.json();if(!access_token)throw Error('Google did not return mail authorization.');
  const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(mail.event_key)))).map(v=>v.toString(16).padStart(2,'0')).join('');

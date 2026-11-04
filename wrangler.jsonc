@@ -4,7 +4,7 @@
   "pages_build_output_dir": "./public",
   "compatibility_date": "2026-11-03",
   "vars": {
-    "RETURNS_MODE": "disabled",
+    "RETURNS_MODE": "live",
     "REAL_EMAIL_ENABLED": "false",
     "INTAKE_ENABLED": "false",
     "POLICY_APPROVED": "false",
@@ -32,7 +32,7 @@
     },
     "production": {
       "vars": {
-        "RETURNS_MODE": "disabled",
+        "RETURNS_MODE": "live",
         "REAL_EMAIL_ENABLED": "false",
         "INTAKE_ENABLED": "false",
         "POLICY_APPROVED": "false",
