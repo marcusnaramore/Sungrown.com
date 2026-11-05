@@ -11,3 +11,7 @@ export const check=(name,label,checked=false)=>`<label class="check-row"><input 
 export async function fileData(file){if(!file)return undefined;if(file.size>500*1024)throw Error('Choose an attachment up to 500 KB.');return {name:file.name,mime:file.type||'text/plain',body:await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result.split(',')[1]);r.onerror=reject;r.readAsDataURL(file);})};}
 export function formBody(form){const data=Object.fromEntries(new FormData(form));for(const c of form.querySelectorAll('input[type=checkbox]'))data[c.name]=c.checked;return data;}
 export function errorBox(el,e){el.textContent=e.message||String(e);el.classList.remove('hidden');el.focus();}
+
+export const dispositionLabels={onsite_destruction:"On-site destruction",pickup:"Return pickup",no_preference:"No preference"};
+export const paymentLabels={check:"Check",credit:"Credit",no_preference:"No preference"};
+export const preferenceNotice="Your requested amount, product-handling preference, and payment preference are not guaranteed. All are subject to Sungrown review and approval. Do not destroy product unless Sungrown provides written authorization and instructions.";
