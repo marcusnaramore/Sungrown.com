@@ -61,3 +61,24 @@ The existing Google Forms endpoints returned HTTP 401 during migration verificat
 The `feature/returns-preview` branch adds `/returns/`, `/admin/returns/`, a dedicated D1 backend, private attachments, notification outbox/test inbox, and isolated Google OIDC authorization scaffolding. **Do not merge or deploy this branch to production as part of preview review.** See `returns/LAUNCH.md` for setup, review steps, and remaining launch decisions.
 
 Local development (Node >=22.13): `node returns/dev.mjs`; tests: `node --test tests/*.test.mjs`. The local SQLite preview uses the same backend request handler and SQL as the Cloudflare Pages Functions deployment, through a small D1-compatible adapter. The `.returns-local` directory is ignored and never uploaded.
+
+## Returns: barcode lookup, $250 trust tier, credits and rep requests (Nov 2026)
+
+Decided Nov 17, 2026: 90-day standard window; per-store exceptions (180 / 365 / Always) come from the
+**Returns Policy Exceptions** column in 5RD; returns priced at $200 or less per store (start; raise later by changing quickLimit) over a rolling
+30 days go to the trust tier (onsite destruction suggested, still needs an owner decision); buyers
+choose check or credit; credits sit on a Pending credits list until Finance applies them to an order.
+
+**Weekly (Owner/Finance/Leadership):** Returns workspace → Order data & stores → upload the OMS
+*Transfer Outbound Details* export as downloaded (.xlsx or .csv, last 7–10 days). The browser reads
+the file and uploads it in chunks; duplicate lines are skipped.
+
+**When 5RD changes (Leadership):** download the 5RD tab and upload it on the same page. It replaces
+the store list. Approved 180-day requests survive re-uploads.
+
+**Rep emails (Leadership):** set on the same page. Reps without an email (open territories) fall back
+to `REP_FALLBACK_EMAIL` (default marcus@sungrown.com).
+
+**Database:** the new tables create themselves on first use. The live database already has the $200 limit and the 30-day rolling total is the code default, so
+migration `0005_catalog_trust_credits.sql` is optional bookkeeping. It can be applied: `npx wrangler d1 migrations apply sungrown-returns-production --env production --remote`.
+The public preview stays fictional: real order or store files are refused there.
