@@ -9,8 +9,9 @@
     "INTAKE_ENABLED": "false",
     "POLICY_APPROVED": "false",
     "MAIL_PROVIDER": "google",
-    "RETURNS_FROM": "Sungrown Returns <returns@sungrown.com>",
-    "RETURNS_REPLY_TO": "returns@sungrown.com",
+    "RETURNS_MAILBOX": "marcus@sungrown.com",
+    "RETURNS_FROM": "Sungrown Returns <marcus@sungrown.com>",
+    "RETURNS_REPLY_TO": "marcus@sungrown.com",
     "GOOGLE_CLIENT_ID": "498681096105-m827bm14hu6qih0oalm8pgqf6a9fahvu.apps.googleusercontent.com"
   },
   "d1_databases": [],
@@ -38,8 +39,9 @@
         "INTAKE_ENABLED": "false",
         "POLICY_APPROVED": "false",
         "MAIL_PROVIDER": "google",
-        "RETURNS_FROM": "Sungrown Returns <returns@sungrown.com>",
-        "RETURNS_REPLY_TO": "returns@sungrown.com",
+        "RETURNS_MAILBOX": "marcus@sungrown.com",
+        "RETURNS_FROM": "Sungrown Returns <marcus@sungrown.com>",
+        "RETURNS_REPLY_TO": "marcus@sungrown.com",
         "GOOGLE_CLIENT_ID": "498681096105-m827bm14hu6qih0oalm8pgqf6a9fahvu.apps.googleusercontent.com"
       },
       "d1_databases": [
