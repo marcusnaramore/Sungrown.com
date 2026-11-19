@@ -36,5 +36,5 @@ CREATE TABLE IF NOT EXISTS rep_requests(
 );
 INSERT OR IGNORE INTO configuration VALUES('rep_emails','{}');
 INSERT OR IGNORE INTO configuration VALUES('catalog','{}');
--- Decided Nov 17 2026: 90-day standard window, $250 trust tier counted per store over a rolling 30 days.
-UPDATE configuration SET data=json_set(data,'$.submitDays',90,'$.completeDays',100,'$.quickLimit',25000,'$.trustWindowDays',30) WHERE key='policy';
+-- Decided Nov 17-18 2026: 90-day standard window, $200 trust tier to start counted per store over a rolling 30 days.
+UPDATE configuration SET data=json_set(data,'$.submitDays',90,'$.completeDays',100,'$.quickLimit',20000,'$.trustWindowDays',30) WHERE key='policy';

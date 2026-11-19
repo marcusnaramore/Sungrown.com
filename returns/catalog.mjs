@@ -33,7 +33,7 @@ export async function ensureSchema(h, env) {
   if (ready.has(env.RETURNS_DB)) return;
   for (const sql of DDL) await h.q(env, sql).run();
   if (env.RETURNS_MODE === 'preview')
-    await h.q(env, "UPDATE configuration SET data=json_set(data,'$.submitDays',90,'$.completeDays',100,'$.quickLimit',25000,'$.trustWindowDays',30) WHERE key='policy' AND json_extract(data,'$.trustWindowDays') IS NULL").run();
+    await h.q(env, "UPDATE configuration SET data=json_set(data,'$.submitDays',90,'$.completeDays',100,'$.quickLimit',20000,'$.trustWindowDays',30) WHERE key='policy' AND json_extract(data,'$.trustWindowDays') IS NULL").run();
   ready.add(env.RETURNS_DB);
 }
 

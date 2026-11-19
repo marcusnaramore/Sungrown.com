@@ -65,7 +65,7 @@ Local development (Node >=22.13): `node returns/dev.mjs`; tests: `node --test te
 ## Returns: barcode lookup, $250 trust tier, credits and rep requests (Nov 2026)
 
 Decided Nov 17, 2026: 90-day standard window; per-store exceptions (180 / 365 / Always) come from the
-**Returns Policy Exceptions** column in 5RD; returns priced at $250 or less per store over a rolling
+**Returns Policy Exceptions** column in 5RD; returns priced at $200 or less per store (start; raise later by changing quickLimit) over a rolling
 30 days go to the trust tier (onsite destruction suggested, still needs an owner decision); buyers
 choose check or credit; credits sit on a Pending credits list until Finance applies them to an order.
 
@@ -79,7 +79,6 @@ the store list. Approved 180-day requests survive re-uploads.
 **Rep emails (Leadership):** set on the same page. Reps without an email (open territories) fall back
 to `REP_FALLBACK_EMAIL` (default marcus@sungrown.com).
 
-**Database:** the new tables create themselves on first use. The live policy change (quick limit
-$200 → $250, 30-day rolling total) only happens when migration `0005_catalog_trust_credits.sql`
-is applied: `npx wrangler d1 migrations apply sungrown-returns-production --env production --remote`.
+**Database:** the new tables create themselves on first use. The live database already has the $200 limit and the 30-day rolling total is the code default, so
+migration `0005_catalog_trust_credits.sql` is optional bookkeeping. It can be applied: `npx wrangler d1 migrations apply sungrown-returns-production --env production --remote`.
 The public preview stays fictional: real order or store files are refused there.

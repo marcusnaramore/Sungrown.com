@@ -57,7 +57,7 @@ test('preview seeds fictional stores; lookup prices packages and applies each st
   assert.equal((await t.request('lookup', { storeKey: JUNIPER, tsid: '9000000000000101' })).body.found, false, 'another store’s package is never found');
 });
 
-test('barcode intake prices from order data and routes $250-or-less to the trust tier', async () => {
+test('barcode intake prices from order data and routes $200-or-less to the trust tier', async () => {
   const t = setup(); await t.login();
   const r = await t.request('claims', intake(CEDAR, [{ tsid: '9000000000000101', qty: 2 }]));
   assert.equal(r.status, 201, JSON.stringify(r.body));
@@ -79,7 +79,7 @@ test('late lines are flagged for review; quantities cannot exceed what shipped',
   assert.equal(always.flags.includes('late'), false); assert.equal(always.path, 'quick');
 });
 
-test('trust tier counts a store’s claims over a rolling 30 days so a return cannot be split under $250', async () => {
+test('trust tier counts a store’s claims over a rolling 30 days so a return cannot be split under $200', async () => {
   const t = setup(); await t.login();
   const a = claim(t, (await t.request('claims', intake(CEDAR, [{ tsid: '9000000000000101', qty: 12 }]))).body.ref);
   assert.equal(a.path, 'quick'); assert.equal(a.requestedCents, 14400);
@@ -185,6 +185,6 @@ test('works on a database that never ran migration 0005; live policy is only cha
     assert.equal(r.status, 200);
     assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE name='shipments'").get());
     const p = JSON.parse(db.prepare("SELECT data FROM configuration WHERE key='policy'").get().data);
-    assert.equal(p.quickLimit, mode === 'preview' ? 25000 : 20000);
+    assert.equal(p.quickLimit, 20000);
   }
 });
