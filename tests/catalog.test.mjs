@@ -188,3 +188,18 @@ test('works on a database that never ran migration 0005; live policy is only cha
     assert.equal(p.quickLimit, 20000);
   }
 });
+
+test('sign-in cookie works on both sungrown.com and www; failed callbacks show a readable page', async () => {
+  const db = new DatabaseSync(':memory:');
+  for (const m of migrations) db.exec(m);
+  const env = { RETURNS_MODE: 'live', RETURNS_DB: adapter(db), GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret', RETURNS_STAFF: '{}' };
+  const start = await handle(new Request('https://sungrown.com/api/returns/auth/google'), env);
+  assert.equal(start.status, 302);
+  assert.match(start.headers.get('set-cookie'), /Domain=sungrown\.com/);
+  const bad = await handle(new Request('https://www.sungrown.com/api/returns/auth/callback?state=nope&code=x'), env);
+  assert.equal(bad.status, 401);
+  assert.match(bad.headers.get('content-type'), /text\/html/);
+  assert.match(await bad.text(), /Sign-in didn’t finish[\s\S]*Try again/);
+  const preview = await handle(new Request('https://abc.sungrown-com.pages.dev/api/returns/auth/google'), env);
+  assert.doesNotMatch(preview.headers.get('set-cookie'), /Domain=/, 'preview hosts keep host-only cookies');
+});
