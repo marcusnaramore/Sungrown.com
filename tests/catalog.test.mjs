@@ -203,3 +203,37 @@ test('sign-in cookie works on both sungrown.com and www; failed callbacks show a
   const preview = await handle(new Request('https://abc.sungrown-com.pages.dev/api/returns/auth/google'), env);
   assert.doesNotMatch(preview.headers.get('set-cookie'), /Domain=/, 'preview hosts keep host-only cookies');
 });
+
+test('over $1,500 (store, 30 days): leadership approves and the rep and leadership are emailed', async () => {
+  const t = setup(); const owner = await t.login('owner'), lead = await t.login('lead');
+  t.db.prepare("INSERT INTO shipments VALUES('big','900001','Cedar Retail · Demo','9000000000000999','DEMO-999','Demo Bulk (fictional)',500,1000,'Accepted',date('now','-5 days'),'x')").run();
+  const ref = (await t.request('claims', intake(CEDAR, [{ tsid: '9000000000000999', qty: 160 }]))).body.ref;
+  let c = claim(t, ref);
+  assert.equal(c.requestedCents, 160000); assert.equal(c.path, 'large');
+  const mails = t.db.prepare("SELECT recipient, payload FROM outbox WHERE claim_id=?").all('large-return:' + c.id);
+  assert.deepEqual(mails.map(m => m.recipient).sort(), ['lead@demo.example', 'rep@demo.example']);
+  assert.match(JSON.parse(mails[0].payload).subject, /needs leadership approval/);
+  const act = async (auth, b) => (await t.request('admin/claims/' + c.id, { version: claim(t, ref).version, ...b }, auth));
+  await act(owner, { action: 'assign', owner: 'owner@demo.example', nextAction: 'Leadership + rep', nextUpdate: '2026-12-01' });
+  await act(owner, { action: 'review', requestedCents: 160000, purchaseValueCents: 160000, deliveryDate: c.deliveryDate, flags: [], checkProduct: true, checkQuantity: true, checkValue: true, checkTiming: true, checkDuplicates: true });
+  assert.equal(t.db.prepare("SELECT COUNT(*) n FROM outbox WHERE claim_id=?").get('large-return:' + c.id).n, 2, 'rep is emailed once, not on every save');
+  const ownerTry = await act(owner, { action: 'decision', decision: 'approved', approvedCents: 160000, message: 'ok', nextUpdate: '2026-12-01' });
+  assert.equal(ownerTry.status, 403); assert.match(ownerTry.body.error, /leadership approval/);
+  assert.equal((await act(lead, { action: 'decision', decision: 'approved', approvedCents: 160000, message: 'ok', nextUpdate: '2026-12-01' })).status, 200);
+});
+
+test('live launch policy applies once from the deploy setting; preview is untouched', async () => {
+  const db = new DatabaseSync(':memory:');
+  for (const m of migrations) db.exec(m);
+  const env = { RETURNS_MODE: 'live', RETURNS_DB: adapter(db), POLICY_LAUNCH: '2026-11-21', RETURNS_STAFF: '{}' };
+  const get = () => JSON.parse(db.prepare("SELECT data FROM configuration WHERE key='policy'").get().data);
+  assert.equal(get().pilotEnabled, false);
+  await handle(new Request('https://sungrown.com/api/returns/config'), env);
+  let p = get();
+  assert.equal(p.pilotEnabled, true); assert.equal(p.destructionEnabled, true); assert.equal(p.quickLimit, 20000); assert.equal(p.approvalLimit, 150000);
+  assert.equal(p.exposureCapCents, 300000); assert.equal(p.exposureCapApproved, true); assert.equal(p.launchVersion, '2026-11-21');
+  // A later manual change is not overwritten by the same launch version on a fresh isolate.
+  p.destructionEnabled = false; db.prepare("UPDATE configuration SET data=? WHERE key='policy'").run(JSON.stringify(p));
+  await handle(new Request('https://sungrown.com/api/returns/config'), { ...env, RETURNS_DB: adapter(db) });
+  assert.equal(get().destructionEnabled, false);
+});
