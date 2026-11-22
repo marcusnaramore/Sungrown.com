@@ -231,7 +231,12 @@ test('live launch policy applies once from the deploy setting; preview is untouc
   await handle(new Request('https://sungrown.com/api/returns/config'), env);
   let p = get();
   assert.equal(p.pilotEnabled, true); assert.equal(p.destructionEnabled, true); assert.equal(p.quickLimit, 20000); assert.equal(p.approvalLimit, 150000);
-  assert.equal(p.exposureCapCents, 300000); assert.equal(p.exposureCapApproved, true); assert.equal(p.launchVersion, '2026-11-21');
+  assert.equal(p.exposureCapCents, null); assert.equal(p.exposureCapPolicy, 'none'); assert.equal(p.launchVersion, '2026-11-21');
+  // With no monthly cap the launch gate opens: a live store can submit once intake and approval are on.
+  db.prepare("INSERT INTO stores VALUES('L1:storea','1','Store A',NULL,NULL,NULL,NULL,'90','x')").run();
+  const r = await handle(new Request('https://sungrown.com/api/returns/claims', { method: 'POST', headers: { origin: 'https://sungrown.com', 'content-type': 'application/json' },
+    body: JSON.stringify({ storeKey: 'L1:storea', email: 'buyer@storea.example', issue: 'Leaking or clogged', product: '2 carts', idempotency: crypto.randomUUID() }) }), { ...env, INTAKE_ENABLED: 'true', POLICY_APPROVED: 'true', RETURNS_DB: adapter(db) });
+  assert.equal(r.status, 201, await r.clone().text());
   // A later manual change is not overwritten by the same launch version on a fresh isolate.
   p.destructionEnabled = false; db.prepare("UPDATE configuration SET data=? WHERE key='policy'").run(JSON.stringify(p));
   await handle(new Request('https://sungrown.com/api/returns/config'), { ...env, RETURNS_DB: adapter(db) });
