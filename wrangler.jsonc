@@ -5,9 +5,10 @@
   "compatibility_date": "2026-11-03",
   "vars": {
     "RETURNS_MODE": "live",
-    "REAL_EMAIL_ENABLED": "false",
-    "INTAKE_ENABLED": "false",
-    "POLICY_APPROVED": "false",
+    "REAL_EMAIL_ENABLED": "true",
+    "INTAKE_ENABLED": "true",
+    "POLICY_APPROVED": "true",
+    "POLICY_LAUNCH": "2026-11-21",
     "MAIL_PROVIDER": "google",
     "RETURNS_MAILBOX": "mnaramore@sungrown.com",
     "RETURNS_FROM": "Sungrown Returns <marcus@sungrown.com>",
@@ -35,9 +36,10 @@
     "production": {
       "vars": {
         "RETURNS_MODE": "live",
-        "REAL_EMAIL_ENABLED": "false",
-        "INTAKE_ENABLED": "false",
-        "POLICY_APPROVED": "false",
+        "REAL_EMAIL_ENABLED": "true",
+        "INTAKE_ENABLED": "true",
+        "POLICY_APPROVED": "true",
+        "POLICY_LAUNCH": "2026-11-21",
         "MAIL_PROVIDER": "google",
         "RETURNS_MAILBOX": "mnaramore@sungrown.com",
         "RETURNS_FROM": "Sungrown Returns <marcus@sungrown.com>",

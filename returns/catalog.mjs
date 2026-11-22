@@ -228,6 +228,28 @@ export async function updateRepRequest(h, env, id, body, s) {
   return { ok: true };
 }
 
+// ---------- Large returns: leadership approval with the rep in the conversation ----------
+
+export async function notifyLargeReturn(h, env, req, c, p) {
+  if (c.path !== 'large') return;
+  const limit = p.approvalLimit || 150000;
+  const repEmails = await config(h, env, 'rep_emails');
+  const lead = repFallback(env);
+  const rep = env.RETURNS_MODE === 'preview' ? 'rep@demo.example' : (c.rep && repEmails[c.rep]) || null;
+  const origin = new URL(req.url).origin, link = `${origin}/admin/returns/?claim=${c.id}`;
+  const amount = '$' + ((c.relatedTotal ?? c.requestedCents ?? 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 });
+  const subject = `${c.store} · ${c.ref} · ${amount} return needs leadership approval`;
+  const text = `${c.store} submitted ${c.ref}: ${amount} (over the $${(limit / 100).toLocaleString('en-US')} approval line, counting this store's last 30 days).\n\nLeadership approves this one, with the store's rep in the conversation before the buyer hears a decision.\nRep: ${c.rep || 'none on file'}\nBuyer: ${c.email}\n\nItems:\n${c.product}\n\nOpen it: ${link}`;
+  const html = `<p><b>${h.html(c.store)}</b> submitted <b>${h.html(c.ref)}</b>: <b>${h.html(amount)}</b>, over the $${(limit / 100).toLocaleString('en-US')} approval line (this store's last 30 days).</p><p>Leadership approves this one, with the store's rep in the conversation before the buyer hears a decision.<br>Rep: ${h.html(c.rep || 'none on file')} · Buyer: ${h.html(c.email)}</p><pre style="white-space:pre-wrap">${h.html(c.product)}</pre><p><a href="${link}">Open the return</a></p>`;
+  const recipients = [...new Set([rep, lead].filter(Boolean))];
+  for (const to of recipients) {
+    const key = `large-${c.id}-${to}`;
+    await h.q(env, 'INSERT OR IGNORE INTO outbox(id,claim_id,event_key,recipient,payload) VALUES(?,?,?,?,?)', h.uid(), 'large-return:' + c.id, key, to, JSON.stringify({ subject, text, html, link })).run();
+    const m = await h.q(env, 'SELECT id,state FROM outbox WHERE event_key=?', key).first();
+    if (m.state === 'pending') await h.deliver(env, m.id);
+  }
+}
+
 // ---------- Pending credits ----------
 
 export function creditsFrom(claims) {

@@ -30,7 +30,7 @@ function setup(mode = 'preview') {
     },
     // Live-mode staff session for an allowlisted account (live mode never uses demo roles).
     liveSession(email) {
-      const raw = 'a'.repeat(63) + Math.floor(Math.random() * 10), csrf = 'c'.repeat(64);
+      const raw = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, ''), csrf = 'c'.repeat(64);
       db.prepare('INSERT INTO staff_sessions VALUES(?,?,?,?)').run(sha(raw), email, Date.now() + 3600000, csrf);
       return { cookie: 'sg_staff=' + raw, csrf };
     },
@@ -202,4 +202,63 @@ test('sign-in cookie works on both sungrown.com and www; failed callbacks show a
   assert.match(await bad.text(), /Sign-in didn’t finish[\s\S]*Try again/);
   const preview = await handle(new Request('https://abc.sungrown-com.pages.dev/api/returns/auth/google'), env);
   assert.doesNotMatch(preview.headers.get('set-cookie'), /Domain=/, 'preview hosts keep host-only cookies');
+});
+
+test('over $1,500 (store, 30 days): leadership approves and the rep and leadership are emailed', async () => {
+  const t = setup(); const owner = await t.login('owner'), lead = await t.login('lead');
+  t.db.prepare("INSERT INTO shipments VALUES('big','900001','Cedar Retail · Demo','9000000000000999','DEMO-999','Demo Bulk (fictional)',500,1000,'Accepted',date('now','-5 days'),'x')").run();
+  const ref = (await t.request('claims', intake(CEDAR, [{ tsid: '9000000000000999', qty: 160 }]))).body.ref;
+  let c = claim(t, ref);
+  assert.equal(c.requestedCents, 160000); assert.equal(c.path, 'large');
+  const mails = t.db.prepare("SELECT recipient, payload FROM outbox WHERE claim_id=?").all('large-return:' + c.id);
+  assert.deepEqual(mails.map(m => m.recipient).sort(), ['lead@demo.example', 'rep@demo.example']);
+  assert.match(JSON.parse(mails[0].payload).subject, /needs leadership approval/);
+  const act = async (auth, b) => (await t.request('admin/claims/' + c.id, { version: claim(t, ref).version, ...b }, auth));
+  await act(owner, { action: 'assign', owner: 'owner@demo.example', nextAction: 'Leadership + rep', nextUpdate: '2026-12-01' });
+  await act(owner, { action: 'review', requestedCents: 160000, purchaseValueCents: 160000, deliveryDate: c.deliveryDate, flags: [], checkProduct: true, checkQuantity: true, checkValue: true, checkTiming: true, checkDuplicates: true });
+  assert.equal(t.db.prepare("SELECT COUNT(*) n FROM outbox WHERE claim_id=?").get('large-return:' + c.id).n, 2, 'rep is emailed once, not on every save');
+  const ownerTry = await act(owner, { action: 'decision', decision: 'approved', approvedCents: 160000, message: 'ok', nextUpdate: '2026-12-01' });
+  assert.equal(ownerTry.status, 403); assert.match(ownerTry.body.error, /leadership approval/);
+  assert.equal((await act(lead, { action: 'decision', decision: 'approved', approvedCents: 160000, message: 'ok', nextUpdate: '2026-12-01' })).status, 200);
+});
+
+test('live launch policy applies once from the deploy setting; preview is untouched', async () => {
+  const db = new DatabaseSync(':memory:');
+  for (const m of migrations) db.exec(m);
+  const env = { RETURNS_MODE: 'live', RETURNS_DB: adapter(db), POLICY_LAUNCH: '2026-11-21', RETURNS_STAFF: '{}' };
+  const get = () => JSON.parse(db.prepare("SELECT data FROM configuration WHERE key='policy'").get().data);
+  assert.equal(get().pilotEnabled, false);
+  await handle(new Request('https://sungrown.com/api/returns/config'), env);
+  let p = get();
+  assert.equal(p.pilotEnabled, true); assert.equal(p.destructionEnabled, true); assert.equal(p.quickLimit, 20000); assert.equal(p.approvalLimit, 150000);
+  assert.equal(p.exposureCapCents, null); assert.equal(p.exposureCapPolicy, 'none'); assert.equal(p.launchVersion, '2026-11-21');
+  // With no monthly cap the launch gate opens: a live store can submit once intake and approval are on.
+  db.prepare("INSERT INTO stores VALUES('L1:storea','1','Store A',NULL,NULL,NULL,NULL,'90','x')").run();
+  const r = await handle(new Request('https://sungrown.com/api/returns/claims', { method: 'POST', headers: { origin: 'https://sungrown.com', 'content-type': 'application/json' },
+    body: JSON.stringify({ storeKey: 'L1:storea', email: 'buyer@storea.example', issue: 'Leaking or clogged', product: '2 carts', idempotency: crypto.randomUUID() }) }), { ...env, INTAKE_ENABLED: 'true', POLICY_APPROVED: 'true', RETURNS_DB: adapter(db) });
+  assert.equal(r.status, 201, await r.clone().text());
+  // A later manual change is not overwritten by the same launch version on a fresh isolate.
+  p.destructionEnabled = false; db.prepare("UPDATE configuration SET data=? WHERE key='policy'").run(JSON.stringify(p));
+  await handle(new Request('https://sungrown.com/api/returns/config'), { ...env, RETURNS_DB: adapter(db) });
+  assert.equal(get().destructionEnabled, false);
+});
+
+test('returns owner can authorize onsite destruction for trust-tier returns; larger ones need leadership', async () => {
+  const t = setup(); const owner = await t.login('owner'), lead = await t.login('lead');
+  // preview policy: turn destruction on (live gets it from the launch policy)
+  const p = JSON.parse(t.db.prepare("SELECT data FROM configuration WHERE key='policy'").get().data); p.destructionEnabled = true;
+  t.db.prepare("UPDATE configuration SET data=? WHERE key='policy'").run(JSON.stringify(p));
+  const go = async (ref, auth, b) => { const c = claim(t, ref); return t.request('admin/claims/' + c.id, { version: c.version, ...b }, auth); };
+  const prep = async (ref, cents) => { const c = claim(t, ref);
+    await go(ref, owner, { action: 'assign', owner: 'owner@demo.example', nextAction: 'x', nextUpdate: '2026-12-01' });
+    await go(ref, owner, { action: 'review', requestedCents: cents, purchaseValueCents: cents, deliveryDate: c.deliveryDate, flags: [], checkProduct: true, checkQuantity: true, checkValue: true, checkTiming: true, checkDuplicates: true });
+    const d = await go(ref, owner, { action: 'decision', decision: 'approved', approvedCents: cents, message: 'ok', nextUpdate: '2026-12-01' }); assert.equal(d.status, 200, JSON.stringify(d.body)); };
+  const small = (await t.request('claims', intake(CEDAR, [{ tsid: '9000000000000101', qty: 2 }]))).body.ref;
+  await prep(small, 2400);
+  assert.equal((await go(small, owner, { action: 'destruction', message: 'Destroy onsite', nextUpdate: '2026-12-01' })).status, 200);
+  const mid = (await t.request('claims', intake(JUNIPER, [{ tsid: '9000000000000201', qty: 20 }]))).body.ref;
+  assert.equal(claim(t, mid).path, 'standard');
+  await prep(mid, 23000);
+  assert.equal((await go(mid, owner, { action: 'destruction', message: 'Destroy onsite', nextUpdate: '2026-12-01' })).status, 403);
+  assert.equal((await go(mid, lead, { action: 'destruction', message: 'Destroy onsite', nextUpdate: '2026-12-01' })).status, 200, 'destruction is still possible above $200 with leadership');
 });
