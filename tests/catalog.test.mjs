@@ -30,7 +30,7 @@ function setup(mode = 'preview') {
     },
     // Live-mode staff session for an allowlisted account (live mode never uses demo roles).
     liveSession(email) {
-      const raw = 'a'.repeat(63) + Math.floor(Math.random() * 10), csrf = 'c'.repeat(64);
+      const raw = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, ''), csrf = 'c'.repeat(64);
       db.prepare('INSERT INTO staff_sessions VALUES(?,?,?,?)').run(sha(raw), email, Date.now() + 3600000, csrf);
       return { cookie: 'sg_staff=' + raw, csrf };
     },
@@ -236,4 +236,24 @@ test('live launch policy applies once from the deploy setting; preview is untouc
   p.destructionEnabled = false; db.prepare("UPDATE configuration SET data=? WHERE key='policy'").run(JSON.stringify(p));
   await handle(new Request('https://sungrown.com/api/returns/config'), { ...env, RETURNS_DB: adapter(db) });
   assert.equal(get().destructionEnabled, false);
+});
+
+test('returns owner can authorize onsite destruction for trust-tier returns; larger ones need leadership', async () => {
+  const t = setup(); const owner = await t.login('owner'), lead = await t.login('lead');
+  // preview policy: turn destruction on (live gets it from the launch policy)
+  const p = JSON.parse(t.db.prepare("SELECT data FROM configuration WHERE key='policy'").get().data); p.destructionEnabled = true;
+  t.db.prepare("UPDATE configuration SET data=? WHERE key='policy'").run(JSON.stringify(p));
+  const go = async (ref, auth, b) => { const c = claim(t, ref); return t.request('admin/claims/' + c.id, { version: c.version, ...b }, auth); };
+  const prep = async (ref, cents) => { const c = claim(t, ref);
+    await go(ref, owner, { action: 'assign', owner: 'owner@demo.example', nextAction: 'x', nextUpdate: '2026-12-01' });
+    await go(ref, owner, { action: 'review', requestedCents: cents, purchaseValueCents: cents, deliveryDate: c.deliveryDate, flags: [], checkProduct: true, checkQuantity: true, checkValue: true, checkTiming: true, checkDuplicates: true });
+    const d = await go(ref, owner, { action: 'decision', decision: 'approved', approvedCents: cents, message: 'ok', nextUpdate: '2026-12-01' }); assert.equal(d.status, 200, JSON.stringify(d.body)); };
+  const small = (await t.request('claims', intake(CEDAR, [{ tsid: '9000000000000101', qty: 2 }]))).body.ref;
+  await prep(small, 2400);
+  assert.equal((await go(small, owner, { action: 'destruction', message: 'Destroy onsite', nextUpdate: '2026-12-01' })).status, 200);
+  const mid = (await t.request('claims', intake(JUNIPER, [{ tsid: '9000000000000201', qty: 20 }]))).body.ref;
+  assert.equal(claim(t, mid).path, 'standard');
+  await prep(mid, 23000);
+  assert.equal((await go(mid, owner, { action: 'destruction', message: 'Destroy onsite', nextUpdate: '2026-12-01' })).status, 403);
+  assert.equal((await go(mid, lead, { action: 'destruction', message: 'Destroy onsite', nextUpdate: '2026-12-01' })).status, 200, 'destruction is still possible above $200 with leadership');
 });
