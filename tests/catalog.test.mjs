@@ -138,6 +138,7 @@ test('rep requests reach the store’s rep (or the fallback), and the Sales Dire
   const ask = (storeKey, kind) => t.request('rep-request', { kind, storeKey, name: 'Buyer', email: 'buyer@store.example', note: 'Please call', idempotency: crypto.randomUUID() });
   assert.equal((await ask('L111:storea', 'slow_sellers')).status, 201);
   assert.equal((await ask('L222:storeb', 'extended_window')).status, 201);
+  assert.equal((await t.request('rep-request', { kind: 'discuss', storeKey: 'L111:storea', name: 'Buyer', email: 'buyer@store.example', note: '', idempotency: crypto.randomUUID() })).status, 400, 'the open form needs a message');
   const to = t.db.prepare("SELECT recipient FROM outbox WHERE claim_id LIKE 'rep-request:%' ORDER BY rowid").all().map(r => r.recipient);
   assert.deepEqual(to, ['chris@sungrown.example', 'marcus@sungrown.com']);
   const list = (await t.request('admin/rep-requests', undefined, rep)).body.requests;
@@ -261,4 +262,21 @@ test('returns owner can authorize onsite destruction for trust-tier returns; lar
   await prep(mid, 23000);
   assert.equal((await go(mid, owner, { action: 'destruction', message: 'Destroy onsite', nextUpdate: '2026-12-01' })).status, 403);
   assert.equal((await go(mid, lead, { action: 'destruction', message: 'Destroy onsite', nextUpdate: '2026-12-01' })).status, 200, 'destruction is still possible above $200 with leadership');
+});
+
+test('each item carries its own reason and note; mixed reasons roll up for the return', async () => {
+  const t = setup(); await t.login();
+  const lines = [{ tsid: '9000000000000101', qty: 1, issue: 'Won’t fire', note: '1 of 2 dead on arrival' }, { tsid: '9000000000000102', qty: 1, issue: 'Leaking or clogged' }];
+  let r = await t.request('claims', intake(CEDAR, lines, { issue: undefined }));
+  assert.equal(r.status, 201, JSON.stringify(r.body));
+  let c = claim(t, r.body.ref);
+  assert.equal(c.issue, 'Multiple reasons (see items)');
+  assert.equal(c.lines[0].issue, 'Won’t fire'); assert.equal(c.lines[0].note, '1 of 2 dead on arrival');
+  assert.match(c.product, /Won’t fire \(1 of 2 dead on arrival\)/);
+  c = claim(t, (await t.request('claims', intake(CEDAR, [lines[1]], { issue: undefined }))).body.ref);
+  assert.equal(c.issue, 'Leaking or clogged', 'one shared reason becomes the return’s reason');
+  r = await t.request('claims', intake(CEDAR, [{ tsid: '9000000000000101', qty: 1 }], { issue: undefined }));
+  assert.equal(r.status, 400, 'a barcode item still needs a reason');
+  r = await t.request('claims', intake(CEDAR, [{ tsid: '9000000000000101', qty: 1, issue: 'Made up' }], { issue: undefined }));
+  assert.equal(r.status, 400);
 });
