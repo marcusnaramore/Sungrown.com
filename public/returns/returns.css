@@ -7,5 +7,7 @@ button.link{background:none;border:0;color:inherit;text-decoration:underline;pad
 #rep-help{margin-top:28px}#rep-help .card h2{margin-top:0}
 @media(max-width:560px){.line-inputs{grid-template-columns:1fr 80px}.line-inputs .remove{grid-column:1/-1;justify-self:start;padding:0}}
 .detail-heading .pill{white-space:nowrap;align-self:flex-start;height:auto}
-.line-facts{display:grid;grid-template-columns:repeat(3,auto);gap:4px 18px;margin:6px 0;justify-content:start}.line-facts div{min-width:0}.line-facts dt{font-size:.8em;opacity:.7;margin:0}.line-facts dd{margin:0}.ok-text{color:#2f6b3a;font-weight:600}
+.line-facts{display:grid;grid-template-columns:repeat(4,auto);gap:4px 18px;margin:6px 0;justify-content:start}.line-facts div{min-width:0}.line-facts dt{font-size:.8em;opacity:.7;margin:0}.line-facts dd{margin:0}.ok-text{color:#2f6b3a;font-weight:600}
 @media(max-width:560px){.line-facts{grid-template-columns:1fr}}
+
+.line-reason{display:flex;gap:16px;align-items:end;flex-wrap:wrap;margin-top:10px}.line-reason>div{flex:1 1 240px}.line-reason label,.line-note-wrap label{margin-top:0}.line-reason .add-note{padding:0 0 12px}.line-note-wrap{margin-top:8px}.line-note-wrap textarea{width:100%}

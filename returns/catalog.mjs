@@ -3,7 +3,7 @@
 
 const DAY = 86400000;
 export const WINDOWS = ['90', '180', '365', 'always'];
-const REQUEST_KINDS = { extended_window: 'Ask about a 180-day return window', slow_sellers: 'Talk to my rep about slow sellers' };
+const REQUEST_KINDS = { discuss: 'Buyer wants to talk with their rep', extended_window: 'Ask about a 180-day return window', slow_sellers: 'Talk to my rep about slow sellers' };
 const ACCEPTED = ['Accepted', 'PartiallyAccepted'];
 
 const slug = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -150,6 +150,15 @@ export async function lookup(h, env, store, tsidInput) {
     unitCents: shipment.unit_cents, shippedUnits: shipment.units, daysSinceDelivery: age, windowDays: days, withinWindow: days == null || age <= days };
 }
 
+export const ISSUES = ['Won’t fire', 'Leaking or clogged', 'Freshness or quality', 'Other'];
+export const MIXED_ISSUE = 'Multiple reasons (see items)';
+
+// One reason for the whole return: the shared per-item reason, or a mixed label.
+export function claimIssue(lines) {
+  const set = [...new Set((lines || []).map(l => l.issue).filter(Boolean))];
+  return set.length === 1 ? set[0] : set.length ? MIXED_ISSUE : '';
+}
+
 export async function priceLines(h, env, store, lines) {
   if (!Array.isArray(lines) || lines.length > 50) h.fail('Add up to 50 items per return.');
   const priced = [];
@@ -158,7 +167,9 @@ export async function priceLines(h, env, store, lines) {
     if (!Number.isInteger(qty) || qty < 1 || qty > 9999) h.fail('Enter a whole-number quantity for each item.');
     const found = await lookup(h, env, store, l.tsid);
     const units = found.found ? Math.min(qty, found.shippedUnits || qty) : qty;
-    priced.push({ ...found, qty, lineCents: found.found ? found.unitCents * units : null, issue: h.clean(l.issue, 80) || null });
+    const issue = h.clean(l.issue, 80) || null;
+    if (issue && !ISSUES.includes(issue)) h.fail('Choose what went wrong for each item.');
+    priced.push({ ...found, qty, lineCents: found.found ? found.unitCents * units : null, issue, note: h.clean(l.note, 500) || null });
   }
   const matched = priced.every(l => l.found);
   return { lines: priced, matched, totalCents: matched ? priced.reduce((n, l) => n + l.lineCents, 0) : null,
@@ -174,6 +185,7 @@ export async function createRepRequest(h, env, req, body) {
   await h.limit(req, env, 'rep-request', 10);
   const kind = h.clean(body.kind, 40), contact = h.clean(body.name, 120), mail = h.email(body.email), note = h.clean(body.note, 1000), key = h.clean(body.idempotency, 100);
   if (!REQUEST_KINDS[kind] || !contact || !/^\S+@\S+\.\S+$/.test(mail) || key.length < 16) h.fail('Choose your store and enter your name and work email.');
+  if (kind === 'discuss' && !note) h.fail('Tell us what you’d like to discuss.');
   if (env.RETURNS_MODE === 'preview' && !mail.endsWith('.example')) h.fail('Preview only: use a fictional email ending in .example.');
   const store = await storeByKey(h, env, body.storeKey);
   const storeName = store?.name || h.clean(body.store, 140);
@@ -187,7 +199,7 @@ export async function createRepRequest(h, env, req, body) {
   const data = { kind, storeKey: store?.key || null, store: storeName, rep: store?.rep || null, currentWindow: store?.return_window || null, contact, email: mail, note, status: 'New', created, recipient, history: [] };
   await h.q(env, 'INSERT OR IGNORE INTO rep_requests(id,idempotency,data) VALUES(?,?,?)', id, idem, JSON.stringify(data)).run();
   const origin = new URL(req.url).origin;
-  const text = `${REQUEST_KINDS[kind]}\n\nStore: ${storeName}\nContact: ${contact} <${mail}>\nAssigned rep: ${store?.rep || 'None on file'}\n${kind === 'extended_window' ? `Current return window: ${store?.return_window || '90'} days\n` : ''}\n${note || '(No note)'}\n\nReply to the buyer directly, then mark it handled: ${origin}/admin/returns/?view=requests`;
+  const text = `${REQUEST_KINDS[kind]}\n\nStore: ${storeName}\nContact: ${contact} <${mail}>\nAssigned rep: ${store?.rep || 'None on file'}\n${kind !== 'slow_sellers' ? `Current return window: ${store?.return_window || '90'} days\n` : ''}\n${note || '(No note)'}\n\nReply to the buyer directly, then mark it handled: ${origin}/admin/returns/?view=requests`;
   await h.q(env, 'INSERT OR IGNORE INTO outbox(id,claim_id,event_key,recipient,payload) VALUES(?,?,?,?,?)', h.uid(), 'rep-request:' + id, 'rep-request-' + id, recipient,
     JSON.stringify({ subject: `${storeName} · ${REQUEST_KINDS[kind]}`, text, link: `${origin}/admin/returns/?view=requests`,
       html: `<h2>${h.html(REQUEST_KINDS[kind])}</h2><p><b>Store:</b> ${h.html(storeName)}<br><b>Contact:</b> ${h.html(contact)} &lt;${h.html(mail)}&gt;<br><b>Assigned rep:</b> ${h.html(store?.rep || 'None on file')}</p><p>${h.html(note || '(No note)')}</p><p><a href="${origin}/admin/returns/?view=requests">Open rep requests</a></p>` })).run();
@@ -211,7 +223,7 @@ export async function updateRepRequest(h, env, id, body, s) {
   const roles = h.rolesOf(s);
   if (action === 'contacted') data.status = 'Contacted';
   else if (action === 'approve' || action === 'decline') {
-    if (data.kind !== 'extended_window') h.fail('Only return-window requests need a decision.');
+    if (data.kind === 'slow_sellers') h.fail('Only return-window requests need a decision.');
     if (!roles.includes('lead')) h.fail('The Sales Director (leadership role) decides return-window requests.', 403);
     if (action === 'approve') {
       if (!data.storeKey) h.fail('This request is not linked to a store on the list. Add the store in 5RD first.');
